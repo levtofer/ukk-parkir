@@ -14,15 +14,15 @@ Aplikasi memiliki tiga level pengguna (Admin, Petugas, Owner) dan mendukung park
 | Kode aplikasi | [`app/`](app/) |
 | Database (`.sql`) | [`app/database/`](app/database/) |
 | Laporan UKK | [`docs/LAPORAN_UKK_Aplikasi_Parkir_Hasan_Asykari.docx`](docs/LAPORAN_UKK_Aplikasi_Parkir_Hasan_Asykari.docx) |
-| Soal (versi pengembangan) | [`docs/(REMAKE) Paket 2 SPK RPL Pengembangan App Parkir.docx`](docs/) |
+| Soal (versi pengembangan) | [`docs/(REMAKE)_Paket_2_SPK_RPL_Pengembangan_App_Parkir.docx`](docs/) |
 
 ---
 
 ## Kebutuhan
 
-* XAMPP atau Laragon (Apache + MySQL/MariaDB)
-* PHP dengan ekstensi `mysqli`
-* Browser modern (misalnya Google Chrome)
+* XAMPP & Laragon (Apache + MySQL/MariaDB)
+* PHP + `mysqli`
+* Browser (Google Chrome)
 
 ---
 
