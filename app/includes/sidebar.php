@@ -8,6 +8,7 @@
 function render_sidebar($activePage = '')
 {
     $role = $_SESSION['role'] ?? '';
+    $dashboardUrl = !empty($role) ? BASE_URL . '/' . urlencode($role) . '/index.php' : BASE_URL . '/index.php';
 
     $navItems = [];
 
@@ -33,10 +34,10 @@ function render_sidebar($activePage = '')
     }
 ?>
     <aside class="sidebar">
-        <div class="brand">
+        <a href="<?= $dashboardUrl; ?>" class="brand">
             <img src="<?= BASE_URL; ?>/assets/images/logo.png" alt="Logo" class="brand-logo">
             <span>Aplikasi Parkir</span>
-        </div>
+        </a>
         <nav>
             <?php foreach ($navItems as $item): ?>
                 <?php $isActive = (strtolower($item['title']) === strtolower($activePage)) ? 'active' : ''; ?>

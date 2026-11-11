@@ -13,6 +13,7 @@ function tanggal_valid($tanggal)
 
 $dari = isset($_GET['dari']) ? trim($_GET['dari']) : date('Y-m-01');
 $sampai = isset($_GET['sampai']) ? trim($_GET['sampai']) : date('Y-m-d');
+$is_print = isset($_GET['print']) && $_GET['print'] === '1';
 $pesan_filter = '';
 
 if (!tanggal_valid($dari) || !tanggal_valid($sampai)) {
@@ -41,14 +42,24 @@ $pendapatan_member = (float) $ringkas->total_member;
 $pendapatan_tamu = $total_pendapatan - $pendapatan_member;
 
 // Detail transaksi: dibatasi per halaman.
-$pg = siapkan_paginasi($total_transaksi, 20);
-$stmt = $db->prepare("SELECT id_transaksi, waktu_keluar, durasi_jam, biaya_total,
-                              plat_nomor, jenis_kendaraan_snapshot, nama_member_snapshot, tipe_parkir_snapshot
-                       FROM tb_transaksi
-                       WHERE waktu_keluar >= ? AND waktu_keluar < DATE_ADD(?, INTERVAL 1 DAY)
-                       ORDER BY waktu_keluar DESC
-                       LIMIT ? OFFSET ?");
-$stmt->bind_param("ssii", $dari, $sampai, $pg['per'], $pg['offset']);
+if ($is_print) {
+    $pg = ['offset' => 0];
+    $stmt = $db->prepare("SELECT id_transaksi, waktu_keluar, durasi_jam, biaya_total,
+                                  plat_nomor, jenis_kendaraan_snapshot, nama_member_snapshot, tipe_parkir_snapshot
+                           FROM tb_transaksi
+                           WHERE waktu_keluar >= ? AND waktu_keluar < DATE_ADD(?, INTERVAL 1 DAY)
+                           ORDER BY waktu_keluar DESC");
+    $stmt->bind_param("ss", $dari, $sampai);
+} else {
+    $pg = siapkan_paginasi($total_transaksi, 20);
+    $stmt = $db->prepare("SELECT id_transaksi, waktu_keluar, durasi_jam, biaya_total,
+                                  plat_nomor, jenis_kendaraan_snapshot, nama_member_snapshot, tipe_parkir_snapshot
+                           FROM tb_transaksi
+                           WHERE waktu_keluar >= ? AND waktu_keluar < DATE_ADD(?, INTERVAL 1 DAY)
+                           ORDER BY waktu_keluar DESC
+                           LIMIT ? OFFSET ?");
+    $stmt->bind_param("ssii", $dari, $sampai, $pg['per'], $pg['offset']);
+}
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -73,7 +84,7 @@ $stmt->close();
         <?php render_sidebar('Rekap Laporan'); ?>
 
         <main class="main">
-            <header class="topbar">
+            <header class="topbar no-print">
                 <div class="page-title">Rekap Transaksi</div>
                 <div class="user-box">
                     <span><?= htmlspecialchars($_SESSION['nama_lengkap']); ?></span>
@@ -82,7 +93,7 @@ $stmt->close();
             </header>
 
             <div class="content">
-                <div class="form-box" style="max-width: 100%;">
+                <div class="form-box no-print" style="max-width: 100%;">
                     <h3>Filter Tanggal</h3>
                     <?php if ($pesan_filter !== ''): ?>
                         <div class="alert error"><?= htmlspecialchars($pesan_filter); ?></div>
@@ -97,71 +108,91 @@ $stmt->close();
                             <input type="date" name="sampai" value="<?= htmlspecialchars($sampai); ?>">
                         </div>
                         <button type="submit" class="btn">Tampilkan</button>
+                        <a href="?dari=<?= urlencode($dari); ?>&sampai=<?= urlencode($sampai); ?>&print=1" target="_blank" class="btn">Cetak Laporan</a>
                     </form>
                 </div>
 
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <div class="label">Total Transaksi</div>
-                        <div class="value"><?= $total_transaksi; ?></div>
+                <div class="printable-area">
+                    <div class="print-only-header">
+                        <h2>Laporan Rekap Transaksi Parkir</h2>
+                        <p>Periode: <?= htmlspecialchars($dari); ?> s/d <?= htmlspecialchars($sampai); ?></p>
                     </div>
-                    <div class="stat-card">
-                        <div class="label">Total Pendapatan</div>
-                        <div class="value">Rp <?= number_format($total_pendapatan, 0, ',', '.'); ?></div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="label">Pendapatan Member</div>
-                        <div class="value">Rp <?= number_format($pendapatan_member, 0, ',', '.'); ?></div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="label">Pendapatan Non-member</div>
-                        <div class="value">Rp <?= number_format($pendapatan_tamu, 0, ',', '.'); ?></div>
-                    </div>
-                </div>
 
-                <h2>Detail Transaksi</h2>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>No.</th>
-                                <th>Member</th>
-                                <th>Tipe</th>
-                                <th>Plat Nomor</th>
-                                <th>Jenis</th>
-                                <th>Waktu Keluar</th>
-                                <th>Durasi (jam)</th>
-                                <th>Biaya</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (count($rows) > 0): ?>
-                                <?php $no = $pg['offset'] + 1; ?>
-                                <?php foreach ($rows as $t): ?>
-                                    <tr>
-                                        <td><?= $no++ ?></td>
-                                        <td><?= htmlspecialchars($t->nama_member_snapshot); ?></td>
-                                        <td><?= $t->tipe_parkir_snapshot === 'member' ? 'Member' : 'Non-member'; ?></td>
-                                        <td><?= htmlspecialchars($t->plat_nomor); ?></td>
-                                        <td><?= htmlspecialchars($t->jenis_kendaraan_snapshot); ?></td>
-                                        <td><?= htmlspecialchars($t->waktu_keluar); ?></td>
-                                        <td><?= htmlspecialchars($t->durasi_jam); ?></td>
-                                        <td>Rp <?= number_format($t->biaya_total, 0, ',', '.'); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
+                    <div class="stat-grid">
+                        <div class="stat-card">
+                            <div class="label">Total Transaksi</div>
+                            <div class="value"><?= $total_transaksi; ?></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">Total Pendapatan</div>
+                            <div class="value">Rp <?= number_format($total_pendapatan, 0, ',', '.'); ?></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">Pendapatan Member</div>
+                            <div class="value">Rp <?= number_format($pendapatan_member, 0, ',', '.'); ?></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">Pendapatan Non-member</div>
+                            <div class="value">Rp <?= number_format($pendapatan_tamu, 0, ',', '.'); ?></div>
+                        </div>
+                    </div>
+
+                    <h2>Detail Transaksi</h2>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <td colspan="8" style="text-align: center;">Tidak ada transaksi pada rentang tanggal ini.</td>
+                                    <th>No.</th>
+                                    <th>Member</th>
+                                    <th>Tipe</th>
+                                    <th>Plat Nomor</th>
+                                    <th>Jenis</th>
+                                    <th>Waktu Keluar</th>
+                                    <th>Durasi (jam)</th>
+                                    <th>Biaya</th>
                                 </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                    <?php render_paginasi($pg); ?>
+                            </thead>
+                            <tbody>
+                                <?php if (count($rows) > 0): ?>
+                                    <?php $no = $pg['offset'] + 1; ?>
+                                    <?php foreach ($rows as $t): ?>
+                                        <tr>
+                                            <td><?= $no++ ?></td>
+                                            <td><?= htmlspecialchars($t->nama_member_snapshot); ?></td>
+                                            <td><?= $t->tipe_parkir_snapshot === 'member' ? 'Member' : 'Non-member'; ?></td>
+                                            <td><?= htmlspecialchars($t->plat_nomor); ?></td>
+                                            <td><?= htmlspecialchars($t->jenis_kendaraan_snapshot); ?></td>
+                                            <td><?= htmlspecialchars($t->waktu_keluar); ?></td>
+                                            <td><?= htmlspecialchars($t->durasi_jam); ?></td>
+                                            <td>Rp <?= number_format($t->biaya_total, 0, ',', '.'); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="8" style="text-align: center;">Tidak ada transaksi pada rentang tanggal ini.</td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                        <?php if (!$is_print): ?>
+                            <div class="no-print">
+                                <?php render_paginasi($pg); ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
             <?php include __DIR__ . '/../includes/footer.php'; ?>
         </main>
     </div>
+
+    <?php if ($is_print): ?>
+        <script>
+            window.addEventListener('load', function() {
+                window.print();
+            });
+        </script>
+    <?php endif; ?>
 </body>
 
 </html>
